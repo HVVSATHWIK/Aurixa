@@ -1,0 +1,6 @@
+fastapi==0.135.2
+uvicorn[standard]==0.42.0
+pydantic==2.12.5
+python-dotenv==1.2.2
+# Optional on Python 3.14+ environments where upstream compatibility may lag.
+langgraph>=0.2.39; python_version < "3.14"

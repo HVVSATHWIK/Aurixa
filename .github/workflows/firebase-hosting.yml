@@ -23,8 +23,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
-        run: npm run build
+      - name: Quality gates (typecheck + lint + build)
+        run: npm run check
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
@@ -39,6 +39,14 @@ jobs:
           VITE_AURIXA_POLL_INTERVAL_MS: '2000'
           VITE_AURIXA_WS_RECONNECT_MS: '2000'
           VITE_AURIXA_SIMULATION_INTERVAL_MS: '2200'
+
+      - name: Validate Firebase deploy secret
+        run: |
+          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT_AURIXA_46CC7 }}" ]; then
+            echo "Missing required secret: FIREBASE_SERVICE_ACCOUNT_AURIXA_46CC7"
+            echo "Set it at Repository -> Settings -> Secrets and variables -> Actions"
+            exit 1
+          fi
 
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0

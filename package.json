@@ -10,6 +10,8 @@
     "check": "npm run typecheck && npm run lint && npm run build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
+    "backend:setup": "python -m pip install -r backend/requirements.txt",
+    "backend:dev": "python -m uvicorn backend.main:app --reload --port 8000",
     "firebase:login": "npx firebase-tools login",
     "firebase:deploy": "npm run build && npx firebase-tools deploy --only hosting --project aurixa-46cc7"
   },

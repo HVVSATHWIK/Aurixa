@@ -32,6 +32,39 @@ If neither endpoint is configured, AURIXA runs a built-in simulated stream so th
 
 Copy `.env.example` to `.env` and set your backend endpoints.
 
+### Where to store endpoints
+
+Store frontend endpoint values in [ .env ](.env):
+
+- `VITE_AURIXA_WS_URL=ws://127.0.0.1:8000/ws/state`
+- `VITE_AURIXA_POLL_URL=http://127.0.0.1:8000/api/state`
+
+For CI and production build pipelines, store endpoint values in GitHub repository secrets:
+
+- `VITE_AURIXA_WS_URL`
+- `VITE_AURIXA_POLL_URL`
+
+Path in GitHub UI:
+Repository -> Settings -> Secrets and variables -> Actions -> New repository secret
+
+## Minimal FastAPI + LangGraph Adapter
+
+Backend adapter files are in [backend/main.py](backend/main.py), [backend/orchestrator.py](backend/orchestrator.py), and [backend/schema.py](backend/schema.py).
+
+Exposed endpoints:
+
+- `GET /api/state`
+- `WS /ws/state`
+
+Run locally:
+
+```bash
+npm run backend:setup
+npm run backend:dev
+```
+
+Backend env values go in `backend/.env` (copy from [backend/.env.example](backend/.env.example)).
+
 ## Authentication and Access
 
 The app now enforces sign-in before entering the observability deck.
@@ -137,6 +170,8 @@ Also add these GitHub repository secrets for build-time frontend config:
 - `VITE_AURIXA_POLL_URL` (optional)
 
 This is the service account JSON value from Firebase project settings.
+
+If this secret is missing, GitHub deploy job will fail at deploy step.
 
 ## CI
 
