@@ -4,16 +4,20 @@
       <stop stop-color="#8A1620"/>
       <stop offset="1" stop-color="#B8842F"/>
     </linearGradient>
+    <linearGradient id="aurixaLight" x1="4" y1="4" x2="92" y2="92" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFDF8"/>
+      <stop offset="1" stop-color="#F2E8D9"/>
+    </linearGradient>
   </defs>
 
-  <rect x="4" y="4" width="88" height="88" rx="20" fill="#FFF9EF" stroke="#D8C8B1"/>
+  <rect x="4" y="4" width="88" height="88" rx="20" fill="url(#aurixaLight)" stroke="#D8C8B1"/>
   <rect x="18" y="22" width="16" height="52" rx="6" fill="url(#aurixaWarm)"/>
   <rect x="40" y="16" width="16" height="58" rx="6" fill="#7B111D"/>
   <rect x="62" y="30" width="16" height="44" rx="6" fill="#C49345"/>
   <path d="M18 78L40 60L62 66L78 52" stroke="#621B22" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 
   <g>
-    <text x="112" y="48" fill="#1F1A17" font-family="Georgia, 'Times New Roman', serif" font-size="38" font-weight="700" letter-spacing="2.6">AURIXA</text>
-    <text x="113" y="72" fill="#5D5248" font-family="Arial, sans-serif" font-size="14" font-weight="600" letter-spacing="2.4">INTELLIGENCE COMMAND CENTER</text>
+    <text x="112" y="48" fill="#1F1A17" font-family="Georgia, 'Times New Roman', serif" font-size="38" font-weight="700" letter-spacing="2.2">AURIXA</text>
+    <text x="113" y="72" fill="#5D5248" font-family="Arial, sans-serif" font-size="14" font-weight="600" letter-spacing="2.1">INTELLIGENCE COMMAND CENTER</text>
   </g>
 </svg>

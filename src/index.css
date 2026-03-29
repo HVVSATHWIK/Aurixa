@@ -170,10 +170,12 @@
       radial-gradient(circle at 70% 20%, rgba(138, 22, 32, 0.2), transparent 42%),
       radial-gradient(circle at 30% 80%, rgba(193, 142, 64, 0.26), transparent 44%),
       linear-gradient(150deg, #f9f0e1 0%, #ecdcc9 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.86),
+      0 14px 28px rgba(82, 49, 28, 0.12);
     perspective: 1200px;
     transform-style: preserve-3d;
-    padding: 20px;
+    padding: 22px;
   }
 
   .landing-lens-ring {
@@ -223,14 +225,14 @@
     bottom: 20px;
     border-radius: 16px;
     border: 1px solid rgba(183, 157, 132, 0.9);
-    background: rgba(255, 253, 247, 0.88);
+    background: rgba(255, 253, 247, 0.95);
     padding: 12px;
     box-shadow: 0 8px 18px rgba(78, 42, 20, 0.14);
   }
 
   .landing-orb {
     position: relative;
-    height: 250px;
+    height: 260px;
     overflow: hidden;
     border-radius: 20px;
     border: 1px solid rgba(138, 22, 32, 0.25);
@@ -339,9 +341,10 @@
 
   .landing-stack {
     position: relative;
-    height: 248px;
+    height: 276px;
     perspective: 1350px;
     transform-style: preserve-3d;
+    overflow: visible;
   }
 
   .landing-stack-card {
@@ -360,21 +363,52 @@
   }
 
   .landing-stack-card-a {
-    top: 18px;
+    top: 14px;
     transform: translateZ(58px) rotateX(7deg) rotateY(-10deg);
     animation: cardDriftA 7s ease-in-out infinite;
   }
 
   .landing-stack-card-b {
-    top: 92px;
+    top: 104px;
     transform: translateZ(26px) rotateX(6deg) rotateY(7deg);
     animation: cardDriftB 8s ease-in-out infinite;
   }
 
   .landing-stack-card-c {
-    top: 164px;
+    top: 194px;
     transform: translateZ(0) rotateX(5deg) rotateY(-5deg);
     animation: cardDriftC 9s ease-in-out infinite;
+  }
+}
+
+@media (max-width: 1024px) {
+  .landing-lens {
+    min-height: 300px;
+  }
+
+  .landing-orb {
+    height: 232px;
+  }
+
+  .landing-stack {
+    height: auto;
+    display: grid;
+    gap: 12px;
+    perspective: none;
+  }
+
+  .landing-stack-card {
+    position: relative;
+    left: auto;
+    right: auto;
+    transform: none !important;
+    animation: none !important;
+  }
+
+  .landing-stack-card-a,
+  .landing-stack-card-b,
+  .landing-stack-card-c {
+    top: auto;
   }
 }
 

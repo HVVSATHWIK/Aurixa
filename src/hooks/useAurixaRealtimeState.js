@@ -44,7 +44,7 @@ function detectBackendOrigin() {
   }
 
   if (typeof window === 'undefined') {
-    return 'http://127.0.0.1:8000';
+    return '';
   }
 
   const { protocol, hostname, port } = window.location;

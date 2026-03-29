@@ -4,8 +4,10 @@ dist/
 .env.local
 .env.*.local
 firebase-debug.log
+.firebase/
 backend/.env
 **/__pycache__/
 *.pyc
 backend/generated_video/
 backend/generated_audio/
+public/demo-audio.m4a

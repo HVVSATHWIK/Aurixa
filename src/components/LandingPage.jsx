@@ -123,7 +123,7 @@ export default function LandingPage({ onLogin, onSignup }) {
                 onClick={onLogin}
                 className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700 transition hover:border-rose-500 hover:text-rose-700"
               >
-                Login
+                Log In
               </button>
               <button
                 type="button"
@@ -140,10 +140,10 @@ export default function LandingPage({ onLogin, onSignup }) {
           <article>
             <div className="section-kicker mb-2">AI-native news experience</div>
             <h2 className="headline-font max-w-4xl text-4xl leading-[1.02] text-slate-900 md:text-6xl">
-              Real newsroom intelligence with real MP4 output, not static mockups.
+              Production-ready newsroom intelligence with real MP4 output.
             </h2>
             <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-700 md:text-base">
-              AURIXA now renders actual video files from generated scenes. The same flow also gives structured briefing, follow-up Q&A, multilingual summary, and auditable governance signals.
+              AURIXA generates real rendered video files from scene plans and supports briefing intelligence, follow-up Q&A, multilingual summaries, and auditable governance signals in one workflow.
             </p>
 
             <div className="mt-5 flex flex-wrap gap-2">
@@ -196,7 +196,7 @@ export default function LandingPage({ onLogin, onSignup }) {
           <section className="deck-card overflow-hidden rounded-[24px] p-6 md:p-8">
             <div className="section-kicker mb-2">Enterprise editorial AI stack</div>
             <h2 className="headline-font max-w-3xl text-3xl leading-tight text-slate-900 md:text-5xl">
-              From raw article input to publication-ready intelligence in one controlled flow.
+              From raw article input to publication-ready intelligence in one controlled pipeline.
             </h2>
             <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-700 md:text-base">
               AURIXA combines analysis, compliance logic, multilingual summaries, and studio output generation so your team can move faster without losing editorial guardrails.
@@ -274,7 +274,7 @@ export default function LandingPage({ onLogin, onSignup }) {
           <article className="deck-card rounded-[24px] p-6 md:p-8">
             <div className="section-kicker mb-2">Capability matrix</div>
             <h3 className="headline-font text-3xl text-slate-900 md:text-4xl">
-              Built as a full-stack editorial operating layer, not a single demo button.
+              Built as a full editorial operating layer, not a single demo action.
             </h3>
             <p className="mt-3 text-sm leading-relaxed text-slate-700 md:text-base">
               Every module is composed to support real operator flow: capture source input, derive insights, validate risk, and package outputs for immediate distribution.
@@ -427,6 +427,14 @@ export default function LandingPage({ onLogin, onSignup }) {
               </button>
             </div>
           </article>
+        </section>
+
+        <section className="deck-card rounded-[22px] border border-slate-300 p-4 md:p-5">
+          <div className="section-kicker mb-2">Terms and Responsible Use</div>
+          <p className="text-sm leading-relaxed text-slate-700">
+            By selecting Log In, Sign Up, or Continue with Google, you agree to AURIXA Terms of Use, Privacy Notice, and Responsible AI Use Policy.
+            AURIXA provides editorial assistance and operational intelligence; it does not provide legal, compliance, investment, or financial advice.
+          </p>
         </section>
       </section>
     </main>

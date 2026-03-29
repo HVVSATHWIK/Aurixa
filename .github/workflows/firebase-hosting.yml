@@ -47,6 +47,49 @@ jobs:
           VITE_AURIXA_WS_RECONNECT_MS: '2000'
           VITE_AURIXA_SIMULATION_INTERVAL_MS: '2200'
 
+      - name: Validate required frontend endpoint secrets
+        env:
+          VITE_AURIXA_BACKEND_ORIGIN: ${{ secrets.VITE_AURIXA_BACKEND_ORIGIN }}
+          VITE_AURIXA_WS_URL: ${{ secrets.VITE_AURIXA_WS_URL }}
+          VITE_AURIXA_POLL_URL: ${{ secrets.VITE_AURIXA_POLL_URL }}
+          VITE_AURIXA_ANALYZE_URL: ${{ secrets.VITE_AURIXA_ANALYZE_URL }}
+          VITE_AURIXA_AUDIO_URL: ${{ secrets.VITE_AURIXA_AUDIO_URL }}
+          VITE_AURIXA_AUDIO_JOB_BASE_URL: ${{ secrets.VITE_AURIXA_AUDIO_JOB_BASE_URL }}
+          VITE_AURIXA_NAVIGATOR_QA_URL: ${{ secrets.VITE_AURIXA_NAVIGATOR_QA_URL }}
+          VITE_AURIXA_VIDEO_BRIEF_URL: ${{ secrets.VITE_AURIXA_VIDEO_BRIEF_URL }}
+          VITE_AURIXA_VIDEO_JOB_BASE_URL: ${{ secrets.VITE_AURIXA_VIDEO_JOB_BASE_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${VITE_AURIXA_BACKEND_ORIGIN}" ]; then
+            echo "Missing required secret: VITE_AURIXA_BACKEND_ORIGIN"
+            exit 1
+          fi
+
+          if [[ "${VITE_AURIXA_BACKEND_ORIGIN}" =~ localhost|127\.0\.0\.1 ]]; then
+            echo "VITE_AURIXA_BACKEND_ORIGIN must not point to localhost in production"
+            exit 1
+          fi
+
+          endpoint_vars=(
+            VITE_AURIXA_WS_URL
+            VITE_AURIXA_POLL_URL
+            VITE_AURIXA_ANALYZE_URL
+            VITE_AURIXA_AUDIO_URL
+            VITE_AURIXA_AUDIO_JOB_BASE_URL
+            VITE_AURIXA_NAVIGATOR_QA_URL
+            VITE_AURIXA_VIDEO_BRIEF_URL
+            VITE_AURIXA_VIDEO_JOB_BASE_URL
+          )
+
+          for var_name in "${endpoint_vars[@]}"; do
+            value="${!var_name:-}"
+            if [[ -n "${value}" && "${value}" =~ localhost|127\.0\.0\.1 ]]; then
+              echo "${var_name} must not point to localhost in production"
+              exit 1
+            fi
+          done
+
       - name: Validate Firebase deploy secret
         run: |
           if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT_AURIXA_46CC7 }}" ]; then

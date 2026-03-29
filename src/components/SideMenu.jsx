@@ -18,7 +18,7 @@ const menuItems = [
   { id: 'audit', label: 'Audit Trail', icon: Terminal },
 ];
 
-function MenuContent({ activePage, onSelectPage, onClose, state }) {
+function MenuContent({ activePage, onSelectPage, onClose = undefined, state }) {
   const provider = String(state?.intelligence?.provider || 'PENDING').toUpperCase();
   const providerClass =
     provider === 'GEMINI'

@@ -7,6 +7,29 @@ const initialForm = {
   password: '',
 };
 
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+      <path
+        fill="#EA4335"
+        d="M12 10.2v3.9h5.5c-.2 1.3-1.5 3.9-5.5 3.9-3.3 0-6-2.8-6-6.2s2.7-6.2 6-6.2c1.9 0 3.2.8 3.9 1.5l2.6-2.6C16.9 2.9 14.7 2 12 2 6.8 2 2.6 6.5 2.6 12S6.8 22 12 22c6.9 0 9.2-4.9 9.2-7.4 0-.5 0-.9-.1-1.3H12z"
+      />
+      <path
+        fill="#34A853"
+        d="M3.7 7.4l3.2 2.4C7.8 7.8 9.7 6.3 12 6.3c1.9 0 3.2.8 3.9 1.5l2.6-2.6C16.9 2.9 14.7 2 12 2 8.1 2 4.7 4.2 3.1 7.4z"
+      />
+      <path
+        fill="#4A90E2"
+        d="M12 22c2.6 0 4.8-.9 6.4-2.4l-3-2.5c-.8.6-1.9 1.1-3.5 1.1-3.9 0-5.2-2.6-5.5-3.9L3.2 17C4.8 20 8.1 22 12 22z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M3.1 7.4C2.4 8.8 2 10.4 2 12s.4 3.2 1.1 4.6l3.2-2.5c-.2-.6-.3-1.3-.3-2.1s.1-1.4.3-2.1L3.1 7.4z"
+      />
+    </svg>
+  );
+}
+
 export default function AuthScreen({
   authError,
   isConfigured,
@@ -29,8 +52,8 @@ export default function AuthScreen({
   const heading = useMemo(
     () =>
       mode === 'signin'
-        ? 'Sign in to the Intelligence Desk'
-        : 'Create your AURIXA Operator Identity',
+        ? 'Sign in to the Intelligence Workspace'
+        : 'Create your AURIXA Operator Account',
     [mode]
   );
 
@@ -83,11 +106,11 @@ export default function AuthScreen({
             </div>
 
             <h1 className="headline-font max-w-xl text-3xl font-semibold leading-tight text-slate-900 lg:text-5xl">
-              A newsroom-grade AI cockpit designed for clarity, speed, and trust.
+              A newsroom-grade AI workspace designed for clarity, speed, and trust.
             </h1>
 
             <p className="mt-5 max-w-lg text-sm leading-relaxed text-slate-600">
-              AURIXA continuously scans, summarizes, translates, and validates business news so operators can move from raw article to publish-ready insight faster.
+              AURIXA continuously analyzes, summarizes, translates, and validates business news so teams can move from raw article input to publication-ready insight with confidence.
             </p>
 
             <div className="mt-8 grid gap-3 text-sm text-slate-700">
@@ -120,8 +143,8 @@ export default function AuthScreen({
                 <h2 className="headline-font text-3xl text-slate-900">{heading}</h2>
                 <p className="mt-1 text-sm text-slate-600">
                   {mode === 'signin'
-                    ? 'Authenticate and enter the live intelligence workspace.'
-                    : 'Register a secure operator identity for your workspace.'}
+                    ? 'Authenticate to access live intelligence, audit logs, and newsroom outputs.'
+                    : 'Register a secure operator account for your newsroom workspace.'}
                 </p>
               </div>
               <Sparkles className="h-5 w-5 text-amber-700" />
@@ -220,6 +243,10 @@ export default function AuthScreen({
               >
                 {isSubmitting ? 'Authenticating...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
               </button>
+
+              <p className="text-xs leading-relaxed text-slate-500">
+                By continuing, you agree to AURIXA Terms of Use and Privacy Notice. Do not use this system as the sole basis for financial or legal decisions.
+              </p>
             </form>
 
             <div className="my-5 flex items-center gap-3">
@@ -230,12 +257,17 @@ export default function AuthScreen({
 
             <button
               type="button"
-              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-800 transition hover:border-rose-500 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-800 transition hover:border-rose-500 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
               onClick={onGoogleSignIn}
               disabled={!isConfigured || isSubmitting}
             >
+              <GoogleIcon />
               Continue with Google
             </button>
+
+            <p className="mt-3 text-center text-[11px] text-slate-500">
+              Secure sign-in is provided by Firebase Authentication.
+            </p>
           </section>
         </div>
       </div>
