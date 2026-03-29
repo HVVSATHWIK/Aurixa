@@ -1,102 +1,106 @@
 import React from 'react';
-import { ArrowRightToLine, PenTool, ShieldAlert, Edit3, CheckCircle2 } from 'lucide-react';
+import {
+  ArrowRightToLine,
+  CheckCircle2,
+  Edit3,
+  PenTool,
+  ShieldAlert,
+} from 'lucide-react';
 
 export default function Pipeline({ state }) {
-  const p = state.pipeline;
+  const p = state.pipeline || {};
 
   const nodes = [
-    { id: 'INGESTION', label: 'INGESTION', icon: ArrowRightToLine, x: '8%', y: '54%', family: 'cyan' },
-    { id: 'DRAFTING', label: 'DRAFTING', icon: PenTool, x: '28%', y: '34%', family: 'cyan' },
-    { id: 'COMPLIANCE', label: 'COMPLIANCE', icon: ShieldAlert, x: '50%', y: '54%', family: 'violet' },
-    { id: 'EDITOR', label: 'EDITOR', icon: Edit3, x: '72%', y: '72%', family: 'slate' },
-    { id: 'APPROVAL', label: 'APPROVAL', icon: CheckCircle2, x: '92%', y: '50%', family: 'green' }
+    { id: 'INGESTION', label: 'Ingestion', icon: ArrowRightToLine },
+    { id: 'DRAFTING', label: 'Drafting', icon: PenTool },
+    { id: 'COMPLIANCE', label: 'Compliance', icon: ShieldAlert },
+    { id: 'EDITOR', label: 'Editor', icon: Edit3 },
+    { id: 'APPROVAL', label: 'Approval', icon: CheckCircle2 },
   ];
 
-  const nodeTheme = {
-    cyan: {
-      shell: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-200',
-      icon: 'text-cyan-300',
-      glow: 'shadow-[0_0_26px_rgba(34,211,238,0.22)]'
-    },
-    violet: {
-      shell: 'border-violet-400/60 bg-violet-500/15 text-violet-100',
-      icon: 'text-violet-200',
-      glow: 'shadow-[0_0_34px_rgba(167,139,250,0.45)]'
-    },
-    slate: {
-      shell: 'border-slate-700 bg-slate-900 text-slate-300',
-      icon: 'text-slate-400',
-      glow: ''
-    },
-    green: {
-      shell: 'border-emerald-500/45 bg-emerald-500/10 text-emerald-200',
-      icon: 'text-emerald-300',
-      glow: 'shadow-[0_0_22px_rgba(34,197,94,0.25)]'
-    }
-  };
+  const activeNode = p.active_node || 'INGESTION';
+  const completedNodes = Array.isArray(p.completed_nodes) ? p.completed_nodes : [];
+  const progressPercent = Math.min(
+    100,
+    Math.round((completedNodes.length / nodes.length) * 100)
+  );
 
   return (
-    <section className="relative flex h-[360px] w-full items-center justify-center overflow-hidden border-b border-slate-800/80 bg-slate-950 px-3 py-5 lg:h-full lg:flex-1 lg:border-b-0 lg:px-6">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_48%_46%,rgba(59,130,246,0.15),transparent_45%),radial-gradient(circle_at_73%_70%,rgba(167,139,250,0.15),transparent_40%)]" />
-      <div className="pointer-events-none absolute inset-x-10 inset-y-8 rounded-[2rem] border border-slate-800/60" />
+    <section className="mb-5 deck-card overflow-hidden p-4 md:p-5">
+      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="section-kicker mb-1">Pipeline Status Rail</div>
+          <h2 className="headline-font text-2xl text-slate-900">Live Editorial Progress</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            The center stage now tracks every production step in real time with no dead space.
+          </p>
+        </div>
 
-      <div className="relative h-full w-full max-w-6xl">
-        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M 8 54 Q 19 42 28 34" fill="none" stroke="rgba(125,211,252,0.55)" strokeWidth="0.35" strokeDasharray="1.4 1.2" />
-          <path d="M 28 34 Q 39 44 50 54" fill="none" stroke="rgba(148,163,184,0.55)" strokeWidth="0.35" strokeDasharray="1.4 1.2" />
-          <path d="M 50 54 Q 61 66 72 72" fill="none" stroke="rgba(196,181,253,0.72)" strokeWidth="0.35" strokeDasharray="1.4 1.2" />
-          <path d="M 72 72 Q 82 61 92 50" fill="none" stroke="rgba(74,222,128,0.6)" strokeWidth="0.35" strokeDasharray="1.4 1.2" />
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="clay-chip px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-700">
+            Active: {activeNode}
+          </span>
+          <span className="clay-chip px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-700">
+            Progress: {progressPercent}%
+          </span>
+        </div>
+      </header>
 
-          <path d="M 50 54 Q 64 87 72 72" fill="none" stroke="rgba(192,132,252,0.9)" strokeWidth="0.32" strokeDasharray="1.2 1" />
-          <path d="M 72 72 Q 63 45 50 54" fill="none" stroke="rgba(216,180,254,0.8)" strokeWidth="0.32" strokeDasharray="1.2 1" />
-        </svg>
+      <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-rose-800 via-rose-600 to-amber-500 transition-all duration-700"
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
 
-        {nodes.map((node) => {
-          const isActive = p.active_node === node.id;
-          const isCompleted = p.completed_nodes.includes(node.id);
-          const theme = nodeTheme[node.family];
+      <div className="mt-5 overflow-x-auto pb-1">
+        <div className="flex min-w-[720px] items-center gap-2">
+          {nodes.map((node, index) => {
+            const isCompleted = completedNodes.includes(node.id);
+            const isActive = activeNode === node.id;
 
-          let shell = 'border-slate-700 bg-slate-900 text-slate-300';
-          let icon = 'text-slate-500';
-          let glow = '';
-
-          if (isCompleted || node.family === 'green') {
-            shell = theme.shell;
-            icon = theme.icon;
-            glow = theme.glow;
-          }
-
-          if (isActive) {
-            shell = nodeTheme.violet.shell;
-            icon = nodeTheme.violet.icon;
-            glow = nodeTheme.violet.glow;
-          }
-
-          return (
-            <div
-              key={node.id}
-              className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-500"
-              style={{ left: node.x, top: node.y }}
-            >
-              {isActive && (
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded-md border border-violet-300/50 bg-violet-500/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-violet-100 animate-pulse">
-                  Active
-                </div>
-              )}
-
-              <div className="flex flex-col items-center gap-2.5">
-                <div
-                  className={`flex items-center justify-center rounded-2xl border transition-all ${shell} ${glow} ${isActive ? 'h-20 w-20 animate-pulse' : 'h-14 w-14'}`}
+            return (
+              <React.Fragment key={node.id}>
+                <article
+                  className={`relative w-36 rounded-2xl border p-3 transition-all ${
+                    isActive
+                      ? 'border-rose-600 bg-rose-50 shadow-[0_8px_18px_rgba(127,29,29,0.18)]'
+                      : isCompleted
+                        ? 'border-emerald-300 bg-emerald-50'
+                        : 'border-slate-200 bg-white'
+                  }`}
                 >
-                  <node.icon className={`${isActive ? 'h-8 w-8' : 'h-6 w-6'} ${icon}`} />
-                </div>
-                <span className={`text-[10px] uppercase tracking-[0.22em] ${isActive ? 'text-violet-100' : 'text-slate-400'}`}>
-                  {node.label}
-                </span>
-              </div>
-            </div>
-          );
-        })}
+                  <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white">
+                    <node.icon
+                      className={`h-4 w-4 ${
+                        isActive
+                          ? 'text-rose-700'
+                          : isCompleted
+                            ? 'text-emerald-700'
+                            : 'text-slate-400'
+                      }`}
+                    />
+                  </div>
+
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">
+                    {node.label}
+                  </div>
+                  <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    {isActive ? 'Live Stage' : isCompleted ? 'Completed' : 'Pending'}
+                  </div>
+                </article>
+
+                {index < nodes.length - 1 && (
+                  <div className="h-1 w-10 rounded-full bg-slate-200">
+                    <div
+                      className={`h-full rounded-full ${isCompleted ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                    />
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

@@ -1,14 +1,28 @@
-# PS1 Architecture One-Pager
+# Architecture One-Pager
 
 ## Problem Statement
 
-**Problem Statement 1: AI for Enterprise Content Operations**
+Primary:
 
-AURIXA is an autonomous, self-correcting content operations system for enterprise workflows.
+- Problem Statement 8: AI-Native News Experience
+
+Supporting depth:
+
+- Problem Statement 1: AI for Enterprise Content Operations
+- Problem Statement 2: Agentic AI for Autonomous Enterprise Workflows
+
+AURIXA is an autonomous, self-correcting intelligence operations system with interactive newsroom outputs.
 
 ## System Objective
 
 Reduce content cycle time while improving compliance and transparency through a multi-agent autonomous loop.
+
+## PS8 Output Modules
+
+1. News Navigator briefing + follow-up Q&A
+2. Story Arc Tracker (timeline + entities + sentiment)
+3. AI Video Studio (AI storyboard + audio + source context)
+4. Vernacular engine (Hindi and Telugu summaries)
 
 ## Agent Topology
 
@@ -63,6 +77,7 @@ This supports governance, explainability, and post-incident analysis.
 
 - Backend: Python + LangGraph orchestrator emitting state snapshots/stream updates.
 - Frontend: Vite + React + Tailwind observability deck.
+- External tools: Gemini, NotebookLM, web source retrieval (Google News RSS with fallback retrieval path).
 - CI: typecheck, lint, build on every push and PR.
 
 ## Success Metrics

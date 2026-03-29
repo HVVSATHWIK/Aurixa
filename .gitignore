@@ -7,3 +7,5 @@ firebase-debug.log
 backend/.env
 **/__pycache__/
 *.pyc
+backend/generated_video/
+backend/generated_audio/

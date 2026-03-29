@@ -1,24 +1,33 @@
-# AURIXA - PS1 Enterprise Content Operations
+# AURIXA - ET AI Hackathon 2026 Submission
 
-AURIXA is a state-driven, autonomous multi-agent observability frontend for **Problem Statement 1: AI for Enterprise Content Operations**.
+AURIXA is a state-driven, autonomous multi-agent intelligence system designed for hackathon depth, not feature sprawl.
 
-This frontend visualizes the full lifecycle of enterprise content processing:
+## Curated Problem Fit
 
-1. Ingestion
-2. Drafting
-3. Compliance detection
-4. Auto-correction by Editor
-5. Re-validation loop (Compliance <-> Editor)
-6. Approval
+Primary:
 
-The UI is intentionally observational: no manual control buttons, only real-time telemetry, violations, pipeline state, and audit trail.
+- Problem Statement 8: AI-Native News Experience
 
-## Core Value Proposition
+Supporting depth:
 
-- Autonomous self-correction loop instead of manual intervention
-- End-to-end auditability of agent decisions
-- Compliance-first enterprise content workflow
-- Real-time visibility for trust and governance
+- Problem Statement 1: AI for Enterprise Content Operations
+- Problem Statement 2: Agentic AI for Autonomous Enterprise Workflows
+
+Implemented capability set:
+
+1. News Navigator interactive briefing with follow-up Q&A
+2. Story Arc Tracker with timeline, entities, and sentiment context
+3. AI Video Studio for 60-120s AI-generated storyboard packs
+4. Vernacular output path (Hindi + Telugu summaries)
+5. Compliance-aware multi-agent pipeline with auditable trail
+
+Submission docs:
+
+- Scope rationale: [docs/HACKATHON_SCOPE.md](docs/HACKATHON_SCOPE.md)
+- Architecture: [docs/PS1_ARCHITECTURE.md](docs/PS1_ARCHITECTURE.md)
+- Impact model: [docs/IMPACT_MODEL.md](docs/IMPACT_MODEL.md)
+- 3-minute pitch script: [docs/PITCH_SCRIPT_3MIN.md](docs/PITCH_SCRIPT_3MIN.md)
+- Setup and troubleshooting guide: [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)
 
 ## Realtime State Integration
 
@@ -41,6 +50,8 @@ Store frontend endpoint values in [ .env ](.env):
 - `VITE_AURIXA_ANALYZE_URL=http://127.0.0.1:8000/api/analyze`
 - `VITE_AURIXA_AUDIO_URL=http://127.0.0.1:8000/api/generate-audio`
 - `VITE_AURIXA_AUDIO_JOB_BASE_URL=http://127.0.0.1:8000/api/audio-jobs`
+- `VITE_AURIXA_VIDEO_BRIEF_URL=http://127.0.0.1:8000/api/generate-video-brief`
+- `VITE_AURIXA_VIDEO_JOB_BASE_URL=http://127.0.0.1:8000/api/video-jobs`
 
 For CI and production build pipelines, store endpoint values in GitHub repository secrets:
 
@@ -61,6 +72,9 @@ Exposed endpoints:
 - `POST /api/analyze`
 - `POST /api/generate-audio`
 - `GET /api/audio-jobs/{job_id}`
+- `POST /api/generate-video-brief`
+- `GET /api/video-jobs/{job_id}`
+- `POST /api/navigator-question`
 
 `POST /api/generate-audio` is asynchronous and returns an immediate `job_id` (HTTP 202). Poll `GET /api/audio-jobs/{job_id}` until status is `completed` or `failed`.
 
@@ -97,6 +111,8 @@ This repository already includes a local `.env` template setup for your Firebase
 Use these key names:
 
 - `GEMINI_API_TOKEN` for backend/server agent calls
+- `GEMINI_MODEL` (recommended: `gemini-2.5-flash-lite`)
+- `GEMINI_MODEL_CANDIDATES` (optional comma-separated fallback model list)
 - `VITE_FIREBASE_API_KEY`
 - `VITE_FIREBASE_AUTH_DOMAIN`
 - `VITE_FIREBASE_PROJECT_ID`
@@ -112,15 +128,15 @@ Note: Environment variable names cannot contain spaces, so `gemini api token` is
 The frontend accepts any of these payloads from WebSocket or HTTP:
 
 ```json
-{ "task_id": "REQ-8829-ET", "...": "..." }
+{ "task_id": "REQ-8829-AX", "...": "..." }
 ```
 
 ```json
-{ "state": { "task_id": "REQ-8829-ET", "...": "..." } }
+{ "state": { "task_id": "REQ-8829-AX", "...": "..." } }
 ```
 
 ```json
-{ "payload": { "task_id": "REQ-8829-ET", "...": "..." } }
+{ "payload": { "task_id": "REQ-8829-AX", "...": "..." } }
 ```
 
 ## Local Setup
@@ -197,7 +213,7 @@ Workflow file: `.github/workflows/ci.yml`
 
 - Frontend can run without AI API keys.
 - Frontend needs Firebase web config values and stream endpoints (`VITE_AURIXA_WS_URL`, `VITE_AURIXA_POLL_URL`).
-- Optional explicit API routes for controls: `VITE_AURIXA_ANALYZE_URL`, `VITE_AURIXA_AUDIO_URL`, `VITE_AURIXA_AUDIO_JOB_BASE_URL`.
+- Optional explicit API routes for controls: `VITE_AURIXA_ANALYZE_URL`, `VITE_AURIXA_AUDIO_URL`, `VITE_AURIXA_AUDIO_JOB_BASE_URL`, `VITE_AURIXA_VIDEO_BRIEF_URL`.
 
 ### Backend (likely required)
 
@@ -211,12 +227,18 @@ Depending on your LangGraph/Python agents and model provider, backend may requir
 
 Keep these keys only in backend/server environment, never in frontend Vite env vars.
 
-## Submission Alignment (PS1)
+## Submission Alignment
 
-AURIXA is scoped to one strong system depth:
+AURIXA intentionally avoids covering every statement. It prioritizes a working end-to-end workflow where one run can:
 
-- Not a chatbot
-- Not a UI-only demo
-- Not a multi-problem mashup
+- ingest and analyze a live article,
+- produce compliance-aware intelligence,
+- answer follow-up questions,
+- generate a web-backed video brief,
+- and expose audit-ready decision traces.
 
-It demonstrates autonomous enterprise content operations with compliance-aware self-correction and transparency.
+For pitch and judging references, use:
+
+- [docs/HACKATHON_SCOPE.md](docs/HACKATHON_SCOPE.md)
+- [docs/PS1_ARCHITECTURE.md](docs/PS1_ARCHITECTURE.md)
+- [docs/IMPACT_MODEL.md](docs/IMPACT_MODEL.md)

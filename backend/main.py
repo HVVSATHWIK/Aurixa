@@ -11,6 +11,7 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from backend.orchestrator import (
     ArticleIntelligenceEngine,
@@ -19,8 +20,18 @@ from backend.orchestrator import (
     now_hms,
     now_iso,
 )
-from backend.schema import AnalyzeRequest, AudioJob, AurixaState, GenerateAudioRequest
+from backend.schema import (
+    AnalyzeRequest,
+    AudioJob,
+    AurixaState,
+    GenerateAudioRequest,
+    GenerateVideoBriefRequest,
+    NavigatorQuestionRequest,
+    VideoJob,
+)
 
+BACKEND_DIR = Path(__file__).resolve().parent
+load_dotenv(BACKEND_DIR / ".env")
 load_dotenv()
 
 PORT = int(os.getenv("PORT", "8000"))
@@ -33,15 +44,29 @@ AURIXA_NOTEBOOKLM_INSTRUCTIONS = os.getenv(
     "Deliver a professional, objective newsroom audio briefing with concise transitions.",
 ).strip()
 AURIXA_AUDIO_OUTPUT_DIR = Path(os.getenv("AURIXA_AUDIO_OUTPUT_DIR", "backend/generated_audio"))
-AURIXA_AUDIO_BASE_URL = os.getenv("AURIXA_AUDIO_BASE_URL", "").strip()
+AURIXA_AUDIO_BASE_URL = os.getenv(
+    "AURIXA_AUDIO_BASE_URL",
+    f"http://127.0.0.1:{PORT}/generated-audio",
+).strip()
 AURIXA_AUDIO_FALLBACK_URL = os.getenv("AURIXA_AUDIO_FALLBACK_URL", "").strip()
 AURIXA_AUDIO_SIMULATION = os.getenv("AURIXA_AUDIO_SIMULATION", "false").strip().lower() == "true"
+AURIXA_AUDIO_LOCAL_TTS_ENABLED = (
+    os.getenv("AURIXA_AUDIO_LOCAL_TTS_ENABLED", "true").strip().lower() == "true"
+)
+AURIXA_EDGE_TTS_VOICE = os.getenv("AURIXA_EDGE_TTS_VOICE", "en-US-AriaNeural").strip() or "en-US-AriaNeural"
+AURIXA_GTTS_LANG = os.getenv("AURIXA_GTTS_LANG", "en").strip() or "en"
+AURIXA_VIDEO_OUTPUT_DIR = Path(os.getenv("AURIXA_VIDEO_OUTPUT_DIR", "backend/generated_video"))
+AURIXA_VIDEO_BASE_URL = os.getenv(
+    "AURIXA_VIDEO_BASE_URL",
+    f"http://127.0.0.1:{PORT}/generated-video",
+).strip()
+AURIXA_VIDEO_RENDER_FPS = int(os.getenv("AURIXA_VIDEO_RENDER_FPS", "8"))
 
 CORS_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
         "CORS_ORIGINS",
-        "http://localhost:5173,https://aurixa-46cc7.web.app",
+        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,https://aurixa-46cc7.web.app",
     ).split(",")
     if origin.strip()
 ]
@@ -54,6 +79,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+AURIXA_AUDIO_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+AURIXA_VIDEO_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/generated-audio", StaticFiles(directory=str(AURIXA_AUDIO_OUTPUT_DIR)), name="generated-audio")
+app.mount("/generated-video", StaticFiles(directory=str(AURIXA_VIDEO_OUTPUT_DIR)), name="generated-video")
 
 _state_lock = asyncio.Lock()
 _state: dict[str, Any] = bootstrap_state()
@@ -62,6 +91,8 @@ _engine = ArticleIntelligenceEngine()
 _analysis_task: asyncio.Task[None] | None = None
 _audio_jobs: dict[str, dict[str, Any]] = {}
 _audio_tasks: dict[str, asyncio.Task[None]] = {}
+_video_jobs: dict[str, dict[str, Any]] = {}
+_video_tasks: dict[str, asyncio.Task[None]] = {}
 
 
 def _push_audit(state: dict[str, Any], *, agent: str, message: str) -> None:
@@ -193,7 +224,11 @@ async def run_analysis_pipeline(payload: AnalyzeRequest) -> None:
             active_node="DRAFTING",
             status="Drafting",
             agent="AGENT:DRAFTING",
-            message="Gemini extraction started for briefing, entities, and Hindi summary.",
+            message=(
+                "Gemini extraction started for briefing, entities, and Hindi summary."
+                if _engine.runtime_status().get("gemini_configured")
+                else "Gemini token not detected. Running heuristic extraction fallback."
+            ),
         )
         await asyncio.sleep(PIPELINE_STEP_DELAY)
 
@@ -219,13 +254,25 @@ async def run_analysis_pipeline(payload: AnalyzeRequest) -> None:
             state["intelligence"]["hindi_summary"] = analysis["hindi_summary"]
             state["intelligence"]["telugu_summary"] = analysis["telugu_summary"]
             state["intelligence"]["generated_at"] = analysis["generated_at"]
-            state["intelligence"]["ruleset"] = "Gemini newsroom extraction protocol v2"
+            state["intelligence"]["ruleset"] = str(
+                analysis.get("ruleset", "Heuristic newsroom fallback protocol v1")
+            )
+            state["intelligence"]["provider"] = str(analysis.get("provider", "HEURISTIC"))
+            state["intelligence"]["provider_message"] = str(
+                analysis.get("provider_message", "Heuristic extraction fallback is active.")
+            )
             state["intelligence"]["violations"] = _violations_from_risk(risk)
             _push_audit(
                 state,
                 agent="AGENT:COMPLIANCE",
                 message="Structured intelligence package validated and ready for approval.",
             )
+            if state["intelligence"]["provider"] != "GEMINI":
+                _push_audit(
+                    state,
+                    agent="AGENT:DRAFTING",
+                    message=state["intelligence"]["provider_message"],
+                )
 
         await mutate_state(compliance_mutation)
         await asyncio.sleep(PIPELINE_STEP_DELAY)
@@ -295,6 +342,46 @@ async def update_audio_job(
     return validated_job
 
 
+async def update_video_job(
+    job_id: str,
+    *,
+    status: str | None = None,
+    message: str | None = None,
+    video_url: str | None = None,
+    started_at: str | None = None,
+    completed_at: str | None = None,
+    audit_message: str | None = None,
+) -> dict[str, Any]:
+    current = _video_jobs.get(job_id)
+    if not current:
+        raise KeyError(f"Unknown video job: {job_id}")
+
+    if status is not None:
+        current["status"] = status
+    if message is not None:
+        current["message"] = message
+    if video_url is not None:
+        current["video_url"] = video_url
+    if started_at is not None:
+        current["started_at"] = started_at
+    if completed_at is not None:
+        current["completed_at"] = completed_at
+
+    validated_job = VideoJob.model_validate(current).model_dump()
+    _video_jobs[job_id] = validated_job
+
+    def mutator(state: dict[str, Any]) -> None:
+        state["studio"]["video_status"] = validated_job["status"]
+        state["studio"]["video_job_id"] = validated_job["job_id"]
+        state["studio"]["video_message"] = validated_job["message"]
+        state["studio"]["video_url"] = validated_job["video_url"]
+        if audit_message:
+            _push_audit(state, agent="AGENT:VIDEO_STUDIO", message=audit_message)
+
+    await mutate_state(mutator)
+    return validated_job
+
+
 def _resolve_audio_url(path_or_url: str) -> str:
     candidate = (path_or_url or "").strip()
     if not candidate:
@@ -310,15 +397,150 @@ def _resolve_audio_url(path_or_url: str) -> str:
     return str(resolved_path)
 
 
+def _build_relevant_audio_script_from_state(state_snapshot: dict[str, Any]) -> str:
+    intelligence = state_snapshot.get("intelligence", {}) if isinstance(state_snapshot, dict) else {}
+    telemetry = state_snapshot.get("telemetry", {}) if isinstance(state_snapshot, dict) else {}
+
+    briefing = intelligence.get("briefing", []) if isinstance(intelligence.get("briefing", []), list) else []
+    briefing_lines = [str(item).strip() for item in briefing if str(item).strip()][:3]
+
+    sentiment = str(intelligence.get("sentiment", "NEUTRAL")).strip().upper() or "NEUTRAL"
+    confidence = telemetry.get("confidence_score")
+    risk = telemetry.get("risk_score")
+    source_url = str(intelligence.get("source_url", "")).strip()
+
+    confidence_line = f"Current confidence score is {confidence} percent." if confidence is not None else ""
+    risk_line = f"Current risk score is {risk} percent." if risk is not None else ""
+    source_line = f"Source reference: {source_url}." if source_url else ""
+
+    script_parts = [
+        "AURIXA newsroom briefing.",
+        *briefing_lines,
+        f"Overall sentiment is {sentiment}.",
+        confidence_line,
+        risk_line,
+        source_line,
+    ]
+
+    return " ".join(part for part in script_parts if part).strip()
+
+
+def _sanitize_tts_script(script_text: str, *, max_chars: int = 2800) -> str:
+    text = " ".join(line.strip() for line in str(script_text or "").splitlines() if line.strip())
+    text = " ".join(text.split())
+    if len(text) > max_chars:
+        text = text[:max_chars].rstrip()
+    return text
+
+
+def _generate_local_tts_sync(script_text: str, output_file: Path) -> str:
+    try:
+        import pyttsx3  # type: ignore
+    except Exception as exc:
+        raise RuntimeError("pyttsx3 is not installed for local fallback TTS.") from exc
+
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    engine = pyttsx3.init()
+
+    try:
+        try:
+            current_rate = int(engine.getProperty("rate"))
+            engine.setProperty("rate", max(140, min(220, int(current_rate * 0.92))))
+        except Exception:
+            pass
+
+        engine.save_to_file(script_text, str(output_file))
+        engine.runAndWait()
+    finally:
+        with suppress(Exception):
+            engine.stop()
+
+    if not output_file.exists() or output_file.stat().st_size == 0:
+        raise RuntimeError("Local TTS did not produce an audio file.")
+
+    return str(output_file)
+
+
+async def _generate_edge_tts_audio(script_text: str, output_file: Path) -> str:
+    try:
+        import edge_tts  # type: ignore
+    except Exception as exc:
+        raise RuntimeError("edge-tts is not installed for local fallback TTS.") from exc
+
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    communicator = edge_tts.Communicate(script_text, voice=AURIXA_EDGE_TTS_VOICE)
+    await communicator.save(str(output_file))
+
+    if not output_file.exists() or output_file.stat().st_size == 0:
+        raise RuntimeError("edge-tts did not produce an audio file.")
+
+    return str(output_file)
+
+
+async def _generate_gtts_audio(script_text: str, output_file: Path) -> str:
+    try:
+        from gtts import gTTS  # type: ignore
+    except Exception as exc:
+        raise RuntimeError("gTTS is not installed for local fallback TTS.") from exc
+
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+
+    def _render() -> str:
+        tts = gTTS(text=script_text, lang=AURIXA_GTTS_LANG, slow=False)
+        tts.save(str(output_file))
+        return str(output_file)
+
+    rendered = await asyncio.to_thread(_render)
+
+    if not output_file.exists() or output_file.stat().st_size == 0:
+        raise RuntimeError("gTTS did not produce an audio file.")
+
+    return rendered
+
+
+async def generate_audio_with_local_tts(job_id: str, script_text: str) -> str:
+    sanitized_script = _sanitize_tts_script(script_text)
+    if len(sanitized_script) < 24:
+        raise RuntimeError("Local TTS script is too short.")
+
+    edge_output = AURIXA_AUDIO_OUTPUT_DIR / f"{job_id}.mp3"
+    try:
+        return await _generate_edge_tts_audio(sanitized_script, edge_output)
+    except Exception as edge_exc:
+        gtts_output = AURIXA_AUDIO_OUTPUT_DIR / f"{job_id}.mp3"
+        try:
+            return await _generate_gtts_audio(sanitized_script, gtts_output)
+        except Exception as gtts_exc:
+            pyttsx_output = AURIXA_AUDIO_OUTPUT_DIR / f"{job_id}.wav"
+            try:
+                return await asyncio.to_thread(_generate_local_tts_sync, sanitized_script, pyttsx_output)
+            except Exception as pyttsx_exc:
+                raise RuntimeError(
+                    f"edge-tts failed ({edge_exc}); gTTS failed ({gtts_exc}); pyttsx3 failed ({pyttsx_exc})"
+                ) from pyttsx_exc
+
+
+def _resolve_video_url(path_or_url: str) -> str:
+    candidate = (path_or_url or "").strip()
+    if not candidate:
+        return ""
+
+    if candidate.startswith(("http://", "https://")):
+        return candidate
+
+    resolved_path = Path(candidate)
+    if AURIXA_VIDEO_BASE_URL:
+        return f"{AURIXA_VIDEO_BASE_URL.rstrip('/')}/{resolved_path.name}"
+
+    return f"/generated-video/{resolved_path.name}"
+
+
 def _is_rpc_error(exc: Exception) -> bool:
     # notebooklm-py exposes RPCError; checking by class name avoids hard import dependency at module load.
     return exc.__class__.__name__ == "RPCError"
 
 
 def _should_use_audio_fallback(exc: Exception) -> bool:
-    if not AURIXA_AUDIO_FALLBACK_URL:
-        return False
-
     if _is_rpc_error(exc) or isinstance(exc, TimeoutError):
         return True
 
@@ -428,6 +650,58 @@ async def run_audio_job(job_id: str, script_text: str) -> None:
         )
     except Exception as exc:
         if _should_use_audio_fallback(exc):
+            if AURIXA_AUDIO_LOCAL_TTS_ENABLED:
+                try:
+                    local_audio_path = await generate_audio_with_local_tts(job_id, script_text)
+                    local_audio_url = _resolve_audio_url(local_audio_path)
+                    await update_audio_job(
+                        job_id,
+                        status="completed",
+                        message=(
+                            "NotebookLM is unavailable. Generated local TTS audio from the latest article briefing."
+                        ),
+                        audio_url=local_audio_url,
+                        completed_at=now_iso(),
+                        audit_message="NotebookLM unavailable. Local TTS fallback audio generated.",
+                    )
+                    return
+                except Exception as local_tts_exc:
+                    if AURIXA_AUDIO_FALLBACK_URL:
+                        await update_audio_job(
+                            job_id,
+                            status="completed",
+                            message=(
+                                "NotebookLM is unavailable and local TTS failed "
+                                f"({local_tts_exc}). Serving fallback demo audio."
+                            ),
+                            audio_url=AURIXA_AUDIO_FALLBACK_URL,
+                            completed_at=now_iso(),
+                            audit_message="NotebookLM unavailable and local TTS failed. Fallback audio served.",
+                        )
+                        return
+
+                    await update_audio_job(
+                        job_id,
+                        status="failed",
+                        message=(
+                            "NotebookLM is unavailable and local TTS fallback failed. "
+                            "Retry once services are back online."
+                        ),
+                        completed_at=now_iso(),
+                        audit_message="Audio generation failed in fallback path.",
+                    )
+                    return
+
+            if not AURIXA_AUDIO_FALLBACK_URL:
+                await update_audio_job(
+                    job_id,
+                    status="failed",
+                    message="NotebookLM is unavailable and no fallback audio URL is configured.",
+                    completed_at=now_iso(),
+                    audit_message="NotebookLM unavailable with no configured fallback.",
+                )
+                return
+
             await update_audio_job(
                 job_id,
                 status="completed",
@@ -452,6 +726,55 @@ async def run_audio_job(job_id: str, script_text: str) -> None:
         _audio_tasks.pop(job_id, None)
 
 
+async def run_video_job(job_id: str, video_payload: dict[str, Any]) -> None:
+    try:
+        await update_video_job(
+            job_id,
+            status="running",
+            message="Rendering newsroom MP4 from generated storyboard...",
+            audit_message="Video rendering started.",
+        )
+
+        output_file = AURIXA_VIDEO_OUTPUT_DIR / f"{job_id}.mp4"
+        rendered_path = _engine.render_video_from_brief(
+            video_payload=video_payload,
+            output_path=str(output_file),
+            fps=AURIXA_VIDEO_RENDER_FPS,
+            width=1280,
+            height=720,
+        )
+
+        resolved_url = _resolve_video_url(rendered_path)
+        if not resolved_url:
+            await update_video_job(
+                job_id,
+                status="failed",
+                message="Video renderer completed but no output URL was resolved.",
+                completed_at=now_iso(),
+                audit_message="Video render failed: output path resolution error.",
+            )
+            return
+
+        await update_video_job(
+            job_id,
+            status="completed",
+            message="Video render complete. MP4 is ready for playback.",
+            video_url=resolved_url,
+            completed_at=now_iso(),
+            audit_message="Video render completed successfully.",
+        )
+    except Exception as exc:
+        await update_video_job(
+            job_id,
+            status="failed",
+            message=f"Video rendering failed: {exc}",
+            completed_at=now_iso(),
+            audit_message="Video rendering failed unexpectedly.",
+        )
+    finally:
+        _video_tasks.pop(job_id, None)
+
+
 @app.on_event("shutdown")
 async def on_shutdown() -> None:
     global _analysis_task
@@ -465,18 +788,32 @@ async def on_shutdown() -> None:
     for task in list(_audio_tasks.values()):
         task.cancel()
 
+    for task in list(_video_tasks.values()):
+        task.cancel()
+
     for task in list(_audio_tasks.values()):
+        with suppress(asyncio.CancelledError):
+            await task
+
+    for task in list(_video_tasks.values()):
         with suppress(asyncio.CancelledError):
             await task
 
 
 @app.get("/health")
-async def health() -> dict[str, str | int]:
+async def health() -> dict[str, Any]:
+    engine_status = _engine.runtime_status()
     return {
         "status": "ok",
         "port": PORT,
         "analysis_running": bool(_analysis_task and not _analysis_task.done()),
         "pending_audio_jobs": len([j for j in _audio_jobs.values() if j["status"] in {"queued", "running"}]),
+        "pending_video_jobs": len([j for j in _video_jobs.values() if j["status"] in {"queued", "running"}]),
+        "gemini_configured": engine_status.get("gemini_configured", False),
+        "gemini_model": engine_status.get("gemini_model", ""),
+        "gemini_model_candidates": engine_status.get("gemini_model_candidates", []),
+        "extraction_provider": engine_status.get("provider", "PENDING"),
+        "extraction_message": engine_status.get("provider_message", ""),
     }
 
 
@@ -509,10 +846,8 @@ async def generate_audio(payload: GenerateAudioRequest) -> dict[str, Any]:
 
     if not script_text:
         async with _state_lock:
-            briefing = _state.get("intelligence", {}).get("briefing", [])
-            hindi_summary = _state.get("intelligence", {}).get("hindi_summary", "")
-            telugu_summary = _state.get("intelligence", {}).get("telugu_summary", "")
-        script_text = "\n".join([*briefing, "", hindi_summary, "", telugu_summary]).strip()
+            snapshot = deepcopy(_state)
+        script_text = _build_relevant_audio_script_from_state(snapshot)
 
     if not script_text:
         raise HTTPException(status_code=400, detail="No script text available for audio generation.")
@@ -549,6 +884,138 @@ async def get_audio_job(job_id: str) -> dict[str, Any]:
     if not job:
         raise HTTPException(status_code=404, detail="Audio job not found.")
     return {"job": job}
+
+
+@app.post("/api/generate-video-brief")
+async def generate_video_brief(payload: GenerateVideoBriefRequest) -> dict[str, Any]:
+    async with _state_lock:
+        intelligence_snapshot = deepcopy(_state.get("intelligence", {}))
+        telemetry_snapshot = deepcopy(_state.get("telemetry", {}))
+
+    briefing = intelligence_snapshot.get("briefing", [])
+    raw_input = str(telemetry_snapshot.get("raw_input", "")).strip()
+    if (not isinstance(briefing, list) or not briefing) and len(raw_input) < 40:
+        raise HTTPException(
+            status_code=400,
+            detail="Run live analysis first before generating a video brief.",
+        )
+
+    intelligence_snapshot["risk_score"] = telemetry_snapshot.get("risk_score")
+    intelligence_snapshot["confidence_score"] = telemetry_snapshot.get("confidence_score")
+
+    video_payload = await _engine.generate_video_brief(
+        intelligence=intelligence_snapshot,
+        raw_input=raw_input,
+        source_url=intelligence_snapshot.get("source_url"),
+        duration_seconds=payload.duration_seconds,
+        focus_topic=payload.focus_topic or "",
+        include_web_search=payload.include_web_search,
+        max_sources=payload.max_sources,
+    )
+
+    provider = str(video_payload.get("provider", "HEURISTIC"))
+    source_count = len(video_payload.get("sources", []) or [])
+    provider_message = str(video_payload.get("provider_message", "")).strip()
+    video_job_id: str | None = None
+
+    if payload.render_video:
+        video_job_id = uuid.uuid4().hex[:12]
+        _video_jobs[video_job_id] = VideoJob(
+            job_id=video_job_id,
+            status="queued",
+            message="Video render request queued.",
+            started_at=now_iso(),
+        ).model_dump()
+
+        await update_video_job(
+            video_job_id,
+            status="queued",
+            message="Video render request queued.",
+            started_at=now_iso(),
+            audit_message="Video render request queued.",
+        )
+
+        task = asyncio.create_task(run_video_job(video_job_id, deepcopy(video_payload)))
+        _video_tasks[video_job_id] = task
+
+        video_payload["video_status"] = "queued"
+        video_payload["video_job_id"] = video_job_id
+        video_payload["video_url"] = None
+    else:
+        video_payload["video_status"] = "idle"
+        video_payload["video_job_id"] = None
+        video_payload["video_url"] = None
+
+    def mutator(state: dict[str, Any]) -> None:
+        _push_audit(
+            state,
+            agent="AGENT:VIDEO_STUDIO",
+            message=(
+                f"Video brief generated via {provider} with {source_count} web sources."
+                if source_count
+                else f"Video brief generated via {provider}."
+            ),
+        )
+        if provider_message:
+            _push_audit(
+                state,
+                agent="AGENT:VIDEO_STUDIO",
+                message=provider_message,
+            )
+        if video_job_id:
+            _push_audit(
+                state,
+                agent="AGENT:VIDEO_STUDIO",
+                message=f"MP4 render queued with job id {video_job_id}.",
+            )
+
+    await mutate_state(mutator)
+    return video_payload
+
+
+@app.get("/api/video-jobs/{job_id}")
+async def get_video_job(job_id: str) -> dict[str, Any]:
+    job = _video_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Video job not found.")
+    return {"job": job}
+
+
+@app.post("/api/navigator-question")
+async def navigator_question(payload: NavigatorQuestionRequest) -> dict[str, Any]:
+    question = (payload.question or "").strip()
+    if len(question) < 3:
+        raise HTTPException(status_code=400, detail="Question must be at least 3 characters.")
+
+    async with _state_lock:
+        intelligence_snapshot = deepcopy(_state.get("intelligence", {}))
+        telemetry_snapshot = deepcopy(_state.get("telemetry", {}))
+
+    intelligence_snapshot["risk_score"] = telemetry_snapshot.get("risk_score")
+    intelligence_snapshot["confidence_score"] = telemetry_snapshot.get("confidence_score")
+
+    answer_payload = await _engine.answer_question(
+        question=question,
+        intelligence=intelligence_snapshot,
+        raw_input=str(telemetry_snapshot.get("raw_input", "")),
+        extra_context=(payload.context or ""),
+    )
+
+    short_question = question if len(question) <= 110 else f"{question[:107]}..."
+
+    def mutator(state: dict[str, Any]) -> None:
+        _push_audit(
+            state,
+            agent="AGENT:NAVIGATOR",
+            message=f"Answered follow-up question: {short_question}",
+        )
+
+    await mutate_state(mutator)
+
+    return {
+        "question": question,
+        **answer_payload,
+    }
 
 
 @app.websocket("/ws/state")

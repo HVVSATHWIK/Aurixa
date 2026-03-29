@@ -40,10 +40,12 @@ export const mockState = {
       'Approval readiness is high once pending editorial harmonization completes.',
     ],
     entities: [
-      { name: 'Economic Times', type: 'ORG' },
+      { name: 'Global News Desk', type: 'ORG' },
       { name: 'Q3 2024', type: 'TOPIC' },
       { name: 'Global Market Trends', type: 'TOPIC' },
     ],
+    provider: 'PENDING',
+    provider_message: 'Awaiting first analysis run.',
     sentiment: 'NEUTRAL',
     hindi_summary:
       'Yeh dashboard abhi demo mode mein hai. Live Hindi summary ke liye backend analysis endpoint ko connect karein.',
@@ -79,5 +81,9 @@ export const mockState = {
     audio_job_id: '',
     audio_message: 'Audio generation has not started.',
     audio_url: '',
+    video_status: 'idle',
+    video_job_id: '',
+    video_message: 'Video render has not started.',
+    video_url: '',
   },
 };

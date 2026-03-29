@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Bot, Lock, Mail, UserRound, Sparkles } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Bot, ChevronLeft, Lock, Mail, UserRound, Sparkles } from 'lucide-react';
 
 const initialForm = {
   name: '',
@@ -13,16 +13,24 @@ export default function AuthScreen({
   onEmailSignIn,
   onEmailSignUp,
   onGoogleSignIn,
+  initialMode = 'signin',
+  onBack,
 }) {
-  const [mode, setMode] = useState('signin');
+  const normalizedInitialMode = initialMode === 'signup' ? 'signup' : 'signin';
+  const [mode, setMode] = useState(normalizedInitialMode);
   const [form, setForm] = useState(initialForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setMode(normalizedInitialMode);
+    setForm(initialForm);
+  }, [normalizedInitialMode]);
 
   const heading = useMemo(
     () =>
       mode === 'signin'
-        ? 'Sign in to Autonomous Operations'
-        : 'Create your AURIXA Control Identity',
+        ? 'Sign in to the Intelligence Desk'
+        : 'Create your AURIXA Operator Identity',
     [mode]
   );
 
@@ -63,59 +71,69 @@ export default function AuthScreen({
   };
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-10">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(34,211,238,0.12),transparent_35%),radial-gradient(circle_at_80%_78%,rgba(168,85,247,0.12),transparent_38%)]" />
+    <main className="aurixa-paper-bg relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(17,74,139,0.18),transparent_34%),radial-gradient(circle_at_85%_84%,rgba(190,106,42,0.16),transparent_38%)]" />
 
-      <div className="relative w-full max-w-6xl overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/70 shadow-[0_40px_120px_rgba(2,6,23,0.6)] backdrop-blur-xl">
-        <div className="grid lg:grid-cols-[1.05fr_1fr]">
-          <section className="border-b border-slate-800/70 p-8 lg:border-b-0 lg:border-r lg:p-10">
-            <div className="mb-10 inline-flex items-center gap-3 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-cyan-200">
-              <Bot className="h-4 w-4" />
-              Agentic Compliance Engine
+      <div className="glass-card relative w-full max-w-6xl rounded-[34px] border border-white/85 p-2">
+        <div className="grid overflow-hidden rounded-[28px] bg-white/75 lg:grid-cols-[1.05fr_0.95fr]">
+          <section className="border-b border-slate-200 p-8 lg:border-b-0 lg:border-r lg:p-10">
+            <div className="brutal-card mb-8 inline-flex items-center gap-3 bg-[#fff9ef] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-800">
+              <Bot className="h-4 w-4 text-rose-700" />
+              Neural Operations Desk
             </div>
 
-            <h1 className="max-w-xl text-3xl font-semibold leading-tight text-slate-100 lg:text-4xl">
-              Enterprise content operations with autonomous correction loops.
+            <h1 className="headline-font max-w-xl text-3xl font-semibold leading-tight text-slate-900 lg:text-5xl">
+              A newsroom-grade AI cockpit designed for clarity, speed, and trust.
             </h1>
 
-            <p className="mt-5 max-w-lg text-sm leading-relaxed text-slate-400">
-              AURIXA continuously detects violations, proposes fixes, applies corrections,
-              and re-validates until compliant output is ready for approval.
+            <p className="mt-5 max-w-lg text-sm leading-relaxed text-slate-600">
+              AURIXA continuously scans, summarizes, translates, and validates business news so operators can move from raw article to publish-ready insight faster.
             </p>
 
-            <div className="mt-8 space-y-3 text-sm text-slate-300">
-              <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3">
-                Compliance and editor agents iterate autonomously in real time.
+            <div className="mt-8 grid gap-3 text-sm text-slate-700">
+              <div className="deck-card px-4 py-3">
+                Classy intelligence surfaces with transparent correction history.
               </div>
-              <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3">
-                Every step is auditable with risk, confidence, and correction traces.
+              <div className="deck-card px-4 py-3">
+                Human-friendly controls for URL input, text input, and audio generation.
               </div>
-              <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3">
-                Transport-aware stream status keeps pipeline visibility reliable.
+              <div className="deck-card px-4 py-3">
+                Built for live demos with robust fallback and readable output.
               </div>
             </div>
           </section>
 
           <section className="p-8 lg:p-10">
-            <div className="mb-6 flex items-center justify-between">
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="mb-4 inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-700 transition hover:border-rose-500 hover:text-rose-700"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Back to Home
+              </button>
+            )}
+
+            <div className="mb-6 flex items-start justify-between">
               <div>
-                <h2 className="text-2xl font-semibold text-slate-100">{heading}</h2>
-                <p className="mt-1 text-sm text-slate-400">
+                <h2 className="headline-font text-3xl text-slate-900">{heading}</h2>
+                <p className="mt-1 text-sm text-slate-600">
                   {mode === 'signin'
-                    ? 'Authenticate and enter the live observability deck.'
+                    ? 'Authenticate and enter the live intelligence workspace.'
                     : 'Register a secure operator identity for your workspace.'}
                 </p>
               </div>
-              <Sparkles className="h-5 w-5 text-violet-300" />
+              <Sparkles className="h-5 w-5 text-amber-700" />
             </div>
 
-            <div className="mb-6 inline-flex rounded-full border border-slate-800 bg-slate-950 p-1 text-xs uppercase tracking-[0.18em] text-slate-400">
+            <div className="mb-6 inline-flex rounded-full border border-slate-300 bg-white p-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               <button
                 type="button"
                 className={`rounded-full px-4 py-1.5 transition ${
                   mode === 'signin'
-                    ? 'bg-cyan-500/15 text-cyan-200'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'clay-chip text-slate-900'
+                    : 'text-slate-500 hover:text-slate-700'
                 }`}
                 onClick={() => onModeSwitch('signin')}
               >
@@ -125,8 +143,8 @@ export default function AuthScreen({
                 type="button"
                 className={`rounded-full px-4 py-1.5 transition ${
                   mode === 'signup'
-                    ? 'bg-violet-500/20 text-violet-200'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'clay-chip text-slate-900'
+                    : 'text-slate-500 hover:text-slate-700'
                 }`}
                 onClick={() => onModeSwitch('signup')}
               >
@@ -135,13 +153,13 @@ export default function AuthScreen({
             </div>
 
             {!isConfigured && (
-              <div className="mb-5 rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+              <div className="mb-5 rounded-xl border border-amber-300 bg-amber-100 px-4 py-3 text-sm text-amber-900">
                 Firebase config is missing. Add values in your .env file from .env.example, then restart npm run dev.
               </div>
             )}
 
             {authError && (
-              <div className="mb-5 rounded-xl border border-rose-300/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+              <div className="mb-5 rounded-xl border border-rose-300 bg-rose-100 px-4 py-3 text-sm text-rose-800">
                 {authError}
               </div>
             )}
@@ -149,7 +167,7 @@ export default function AuthScreen({
             <form className="space-y-4" onSubmit={handleSubmit}>
               {mode === 'signup' && (
                 <label className="block">
-                  <span className="mb-1.5 inline-flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-400">
+                  <span className="mb-1.5 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                     <UserRound className="h-3.5 w-3.5" />
                     Full Name
                   </span>
@@ -157,7 +175,7 @@ export default function AuthScreen({
                     type="text"
                     value={form.name}
                     onChange={(event) => update('name', event.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-violet-400/60"
+                    className="skeuo-input w-full px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-rose-500"
                     placeholder="AURIXA Operator"
                     required
                   />
@@ -165,7 +183,7 @@ export default function AuthScreen({
               )}
 
               <label className="block">
-                <span className="mb-1.5 inline-flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-400">
+                <span className="mb-1.5 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                   <Mail className="h-3.5 w-3.5" />
                   Email Address
                 </span>
@@ -173,14 +191,14 @@ export default function AuthScreen({
                   type="email"
                   value={form.email}
                   onChange={(event) => update('email', event.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-400/60"
-                  placeholder="operator@enterprise.com"
+                  className="skeuo-input w-full px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-rose-500"
+                  placeholder="operator@newsroom.ai"
                   required
                 />
               </label>
 
               <label className="block">
-                <span className="mb-1.5 inline-flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-400">
+                <span className="mb-1.5 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                   <Lock className="h-3.5 w-3.5" />
                   Password
                 </span>
@@ -188,7 +206,7 @@ export default function AuthScreen({
                   type="password"
                   value={form.password}
                   onChange={(event) => update('password', event.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-400/60"
+                  className="skeuo-input w-full px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-rose-500"
                   placeholder="At least 6 characters"
                   required
                   minLength={6}
@@ -197,7 +215,7 @@ export default function AuthScreen({
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-violet-500 px-4 py-3 text-sm font-semibold uppercase tracking-[0.15em] text-slate-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                className="liquid-highlight w-full rounded-xl border border-slate-900 bg-slate-900 px-4 py-3 text-sm font-semibold uppercase tracking-[0.15em] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={!isConfigured || isSubmitting}
               >
                 {isSubmitting ? 'Authenticating...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
@@ -205,14 +223,14 @@ export default function AuthScreen({
             </form>
 
             <div className="my-5 flex items-center gap-3">
-              <div className="h-px flex-1 bg-slate-800" />
-              <span className="text-xs uppercase tracking-[0.2em] text-slate-500">or</span>
-              <div className="h-px flex-1 bg-slate-800" />
+              <div className="h-px flex-1 bg-slate-300" />
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">or</span>
+              <div className="h-px flex-1 bg-slate-300" />
             </div>
 
             <button
               type="button"
-              className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-sm font-medium text-slate-100 transition hover:border-cyan-300/50 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-800 transition hover:border-rose-500 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
               onClick={onGoogleSignIn}
               disabled={!isConfigured || isSubmitting}
             >
