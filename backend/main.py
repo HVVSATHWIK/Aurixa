@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import uuid
 from contextlib import suppress
 from copy import deepcopy
@@ -61,6 +62,9 @@ AURIXA_VIDEO_BASE_URL = os.getenv(
     f"http://127.0.0.1:{PORT}/generated-video",
 ).strip()
 AURIXA_VIDEO_RENDER_FPS = int(os.getenv("AURIXA_VIDEO_RENDER_FPS", "8"))
+AURIXA_VIDEO_RENDER_TIMEOUT_SECONDS = int(
+    os.getenv("AURIXA_VIDEO_RENDER_TIMEOUT_SECONDS", "240")
+)
 
 CORS_ORIGINS = [
     origin.strip()
@@ -402,32 +406,118 @@ def _build_relevant_audio_script_from_state(state_snapshot: dict[str, Any]) -> s
     telemetry = state_snapshot.get("telemetry", {}) if isinstance(state_snapshot, dict) else {}
 
     briefing = intelligence.get("briefing", []) if isinstance(intelligence.get("briefing", []), list) else []
-    briefing_lines = [str(item).strip() for item in briefing if str(item).strip()][:3]
+    fallback_markers = (
+        "gemini output unavailable",
+        "fallback is active",
+        "summary unavailable",
+    )
+
+    briefing_lines: list[str] = []
+    for item in briefing:
+        line = _sanitize_tts_script(str(item), max_chars=220)
+        if not line:
+            continue
+        if any(marker in line.lower() for marker in fallback_markers):
+            continue
+        briefing_lines.append(line)
+        if len(briefing_lines) >= 2:
+            break
 
     sentiment = str(intelligence.get("sentiment", "NEUTRAL")).strip().upper() or "NEUTRAL"
     confidence = telemetry.get("confidence_score")
     risk = telemetry.get("risk_score")
     source_url = str(intelligence.get("source_url", "")).strip()
 
+    entities = intelligence.get("entities", []) if isinstance(intelligence.get("entities", []), list) else []
+    lead_entities: list[str] = []
+    for entity in entities:
+        if isinstance(entity, dict):
+            name = str(entity.get("name", "")).strip()
+        else:
+            name = str(entity).strip()
+        if name:
+            lead_entities.append(name)
+        if len(lead_entities) >= 3:
+            break
+
+    if sentiment == "NEGATIVE":
+        sentiment_line = "Market tone is cautious in the current cycle."
+    elif sentiment == "POSITIVE":
+        sentiment_line = "Market tone is constructive in the current cycle."
+    else:
+        sentiment_line = "Market tone is balanced in the current cycle."
+
     confidence_line = f"Current confidence score is {confidence} percent." if confidence is not None else ""
     risk_line = f"Current risk score is {risk} percent." if risk is not None else ""
+    watchlist_line = (
+        f"Key entities to track next: {', '.join(lead_entities)}."
+        if lead_entities
+        else ""
+    )
+    context_line = ""
+    try:
+        risk_value = float(risk) if risk is not None else None
+        if risk_value is None:
+            context_line = ""
+        elif risk_value >= 55:
+            context_line = (
+                "Current context is high-volatility, so verification should be prioritized before publication."
+            )
+        elif risk_value >= 30:
+            context_line = (
+                "Current context is mixed, so keep a close watch on follow-up disclosures and guidance changes."
+            )
+        else:
+            context_line = (
+                "Current context is relatively stable, with standard review controls sufficient for publication."
+            )
+    except Exception:
+        context_line = ""
+
+    if briefing_lines:
+        topline = briefing_lines[0]
+        impact_line = briefing_lines[1] if len(briefing_lines) > 1 else ""
+    else:
+        raw_fallback = _sanitize_tts_script(str(telemetry.get("raw_input", "")), max_chars=260)
+        topline = raw_fallback or "AURIXA has processed the latest business-news update."
+        impact_line = ""
+
     source_line = f"Source reference: {source_url}." if source_url else ""
 
     script_parts = [
-        "AURIXA newsroom briefing.",
-        *briefing_lines,
-        f"Overall sentiment is {sentiment}.",
+        "AURIXA newsroom update.",
+        topline,
+        impact_line,
+        sentiment_line,
+        context_line,
         confidence_line,
         risk_line,
+        watchlist_line,
         source_line,
     ]
 
-    return " ".join(part for part in script_parts if part).strip()
+    return _sanitize_tts_script(" ".join(part for part in script_parts if part).strip())
 
 
 def _sanitize_tts_script(script_text: str, *, max_chars: int = 2800) -> str:
-    text = " ".join(line.strip() for line in str(script_text or "").splitlines() if line.strip())
-    text = " ".join(text.split())
+    text = str(script_text or "")
+    text = re.sub(r"[\u200B-\u200F\u2060\uFEFF]", "", text)
+    replacements = {
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201C": '"',
+        "\u201D": '"',
+        "\u2013": "-",
+        "\u2014": "-",
+        "\u00A0": " ",
+    }
+    for src, dst in replacements.items():
+        text = text.replace(src, dst)
+
+    text = " ".join(line.strip() for line in text.splitlines() if line.strip())
+    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"\.{3,}", "...", text)
+
     if len(text) > max_chars:
         text = text[:max_chars].rstrip()
     return text
@@ -444,7 +534,8 @@ def _generate_local_tts_sync(script_text: str, output_file: Path) -> str:
 
     try:
         try:
-            current_rate = int(engine.getProperty("rate"))
+            raw_rate = engine.getProperty("rate")
+            current_rate = int(float(str(raw_rate)))
             engine.setProperty("rate", max(140, min(220, int(current_rate * 0.92))))
         except Exception:
             pass
@@ -595,7 +686,7 @@ async def generate_audio_with_notebooklm(job_id: str, script_text: str) -> str:
         output_file = AURIXA_AUDIO_OUTPUT_DIR / f"{job_id}.mp3"
         downloaded = await client.artifacts.download_audio(
             notebook_id=notebook.id,
-            filename=str(output_file),
+            output_path=str(output_file),
         )
 
     return str(downloaded)
@@ -736,13 +827,30 @@ async def run_video_job(job_id: str, video_payload: dict[str, Any]) -> None:
         )
 
         output_file = AURIXA_VIDEO_OUTPUT_DIR / f"{job_id}.mp4"
-        rendered_path = _engine.render_video_from_brief(
-            video_payload=video_payload,
-            output_path=str(output_file),
-            fps=AURIXA_VIDEO_RENDER_FPS,
-            width=1280,
-            height=720,
-        )
+        try:
+            rendered_path = await asyncio.wait_for(
+                asyncio.to_thread(
+                    _engine.render_video_from_brief,
+                    video_payload=video_payload,
+                    output_path=str(output_file),
+                    fps=AURIXA_VIDEO_RENDER_FPS,
+                    width=1280,
+                    height=720,
+                ),
+                timeout=max(60, AURIXA_VIDEO_RENDER_TIMEOUT_SECONDS),
+            )
+        except TimeoutError:
+            await update_video_job(
+                job_id,
+                status="failed",
+                message=(
+                    f"Video rendering exceeded {AURIXA_VIDEO_RENDER_TIMEOUT_SECONDS} seconds. "
+                    "Try again with a shorter brief."
+                ),
+                completed_at=now_iso(),
+                audit_message="Video rendering timed out.",
+            )
+            return
 
         resolved_url = _resolve_video_url(rendered_path)
         if not resolved_url:

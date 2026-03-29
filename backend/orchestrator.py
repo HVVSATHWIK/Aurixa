@@ -13,7 +13,15 @@ from xml.etree import ElementTree as ET
 import httpx
 from bs4 import BeautifulSoup
 
-from backend.schema import AurixaState, VideoBrief
+from backend.schema import (
+    AuditEvent,
+    AurixaState,
+    Intelligence,
+    Pipeline,
+    Studio,
+    Telemetry,
+    VideoBrief,
+)
 
 PIPELINE_ORDER = ["INGESTION", "DRAFTING", "COMPLIANCE", "EDITOR", "APPROVAL"]
 DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
@@ -55,45 +63,49 @@ def bootstrap_state() -> Dict[str, Any]:
         system_status="READY FOR LIVE ARTICLE ANALYSIS",
         iteration=0,
         retry_count=0,
-        telemetry={
-            "raw_input": "Awaiting article URL or article text.",
-            "draft_version": "v0.0",
-            "status": "Idle",
-            "confidence_score": 0.0,
-            "risk_score": 0.0,
-        },
-        pipeline={
-            "active_node": "INGESTION",
-            "completed_nodes": [],
-        },
-        intelligence={
-            "violations": [],
-            "ruleset": "AURIXA newsroom extraction protocol v1",
-            "briefing": [
+        telemetry=Telemetry(
+            raw_input="Awaiting article URL or article text.",
+            draft_version="v0.0",
+            status="Idle",
+            confidence_score=0.0,
+            risk_score=0.0,
+        ),
+        pipeline=Pipeline(
+            active_node="INGESTION",
+            completed_nodes=[],
+        ),
+        intelligence=Intelligence(
+            violations=[],
+            ruleset="AURIXA newsroom extraction protocol v1",
+            briefing=[
                 "Submit a source URL or raw article text to begin analysis.",
                 "Gemini extracts briefing bullets and key entities.",
                 "Hindi and Telugu summaries appear after drafting completes.",
             ],
-            "entities": [],
-            "sentiment": "NEUTRAL",
-            "hindi_summary": "",
-            "telugu_summary": "",
-            "source_url": None,
-            "generated_at": "",
-        },
+            entities=[],
+            sentiment="NEUTRAL",
+            hindi_summary="",
+            telugu_summary="",
+            source_url=None,
+            generated_at="",
+        ),
         audit_trail=[
-            {
-                "timestamp": now_hms(),
-                "agent": "SYSTEM",
-                "message": "Backend online. Waiting for first analysis request.",
-            }
+            AuditEvent(
+                timestamp=now_hms(),
+                agent="SYSTEM",
+                message="Backend online. Waiting for first analysis request.",
+            )
         ],
-        studio={
-            "audio_status": "idle",
-            "audio_job_id": None,
-            "audio_message": "NotebookLM job has not started.",
-            "audio_url": None,
-        },
+        studio=Studio(
+            audio_status="idle",
+            audio_job_id=None,
+            audio_message="NotebookLM job has not started.",
+            audio_url=None,
+            video_status="idle",
+            video_job_id=None,
+            video_message="Video render job has not started.",
+            video_url=None,
+        ),
     )
 
     return state.model_dump()
@@ -313,7 +325,10 @@ class ArticleIntelligenceEngine:
         scripts = soup.find_all("script", attrs={"type": re.compile("ld\\+json", re.IGNORECASE)})
 
         for script in scripts:
-            raw_json = (script.string or script.get_text(" ", strip=True) or "").strip()
+            raw_json = ""
+            get_text = getattr(script, "get_text", None)
+            if callable(get_text):
+                raw_json = _clean_text(str(get_text(" ", strip=True)))
             if not raw_json:
                 continue
 
@@ -1392,15 +1407,45 @@ class ArticleIntelligenceEngine:
 
     def _heuristic_payload(self, article_text: str) -> Dict[str, Any]:
         sentences = _split_relevant_sentences(article_text)
-        briefing = [line for line in sentences if len(line) > 30][:3]
+        entities = self._heuristic_entities(article_text)
+        sentiment = self._heuristic_sentiment(article_text)
+
+        briefing: list[str] = []
+        for sentence in sentences:
+            cleaned = _clean_text(sentence)
+            if len(cleaned) < 30:
+                continue
+            briefing.append(cleaned[:220])
+            if len(briefing) >= 2:
+                break
+
+        lead_entities = [entry.get("name", "") for entry in entities[:3] if isinstance(entry, dict)]
+        lead_entities = [name for name in lead_entities if _clean_text(str(name))]
+
+        if sentiment == "NEGATIVE":
+            context_line = "Current context is cautious; prioritize downside signal validation and risk controls before publish."
+        elif sentiment == "POSITIVE":
+            context_line = "Current context is constructive; monitor follow-through signals and guidance consistency in the next cycle."
+        else:
+            context_line = "Current context is mixed; track confirmation signals and policy or guidance updates over the next 24 hours."
+
+        if lead_entities:
+            context_line = f"{context_line} Key entities to watch: {', '.join(lead_entities)}."
+
+        briefing.append(context_line)
 
         while len(briefing) < 3:
-            briefing.append("Gemini output unavailable. Heuristic extraction fallback is active.")
+            fallback_line = (
+                sentences[len(briefing)]
+                if len(sentences) > len(briefing)
+                else "Heuristic continuity mode is active. Core signals remain available while the primary model is unavailable."
+            )
+            briefing.append(_clean_text(fallback_line)[:220])
 
         return {
             "briefing": briefing[:3],
-            "entities": self._heuristic_entities(article_text),
-            "sentiment": self._heuristic_sentiment(article_text),
+            "entities": entities,
+            "sentiment": sentiment,
             "hindi_summary": "Hindi summary unavailable because heuristic fallback is active.",
             "telugu_summary": "Telugu summary unavailable because heuristic fallback is active.",
             "confidence_score": 72.0,

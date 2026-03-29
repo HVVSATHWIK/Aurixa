@@ -218,7 +218,9 @@ export default function TelemetryPanel({
 
           {!canGenerateAudio && (
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
-              Run live analysis first to unlock audio generation.
+              {analysisLocked
+                ? 'Analysis is still running. Audio and video controls unlock when status changes to LIVE INTELLIGENCE READY.'
+                : 'Run live analysis first to unlock audio generation.'}
             </div>
           )}
 

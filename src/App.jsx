@@ -75,14 +75,14 @@ function App() {
   const liveAudioUrl = audioJob?.audio_url || studio.audio_url;
   const liveAudioMessage = audioJob?.message || studio.audio_message;
 
-  const hasLiveIntelligence = useMemo(
-    () => Boolean(state?.intelligence?.generated_at),
-    [state]
-  );
-
   const backendAnalysisRunning = useMemo(
     () => String(state?.system_status || '').toUpperCase().includes('RUNNING'),
     [state?.system_status]
+  );
+
+  const hasLiveIntelligence = useMemo(
+    () => Boolean(state?.intelligence?.generated_at) && !backendAnalysisRunning,
+    [state?.intelligence?.generated_at, backendAnalysisRunning]
   );
 
   const hasVideoPackage = useMemo(
@@ -235,6 +235,10 @@ function App() {
 
     setAnalysisPending(true);
     setAnalysisError('');
+    setAudioError('');
+    setVideoError('');
+    setAudioJob(null);
+    setVideoPackage(null);
 
     try {
       await analyzeArticle({ articleUrl, articleText });
@@ -253,42 +257,16 @@ function App() {
       return;
     }
 
+    if (backendAnalysisRunning) {
+      setAudioError('Wait for analysis to complete before generating audio.');
+      return;
+    }
+
     setAudioPending(true);
     setAudioError('');
 
     try {
-      const briefingLines = (state.intelligence?.briefing || [])
-        .map((line) => String(line || '').trim())
-        .filter(Boolean)
-        .slice(0, 3);
-
-      const sentiment = String(state.intelligence?.sentiment || 'NEUTRAL').toUpperCase();
-      const confidence = state.telemetry?.confidence_score;
-      const risk = state.telemetry?.risk_score;
-
-      const confidenceLine =
-        Number.isFinite(Number(confidence))
-          ? `Current confidence is ${Number(confidence)} percent.`
-          : '';
-      const riskLine =
-        Number.isFinite(Number(risk))
-          ? `Current risk is ${Number(risk)} percent.`
-          : '';
-
-      const defaultScript = [
-        'AURIXA newsroom briefing.',
-        ...briefingLines,
-        `Overall sentiment is ${sentiment}.`,
-        confidenceLine,
-        riskLine,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .trim();
-
-      const payload = await generateAudio({
-        scriptText: defaultScript,
-      });
+      const payload = await generateAudio();
 
       if (payload?.job) {
         setAudioJob(payload.job);
@@ -425,6 +403,11 @@ function App() {
 
   const handleBuildVideoBrief = async () => {
     if (!hasLiveIntelligence || videoPending) {
+      return;
+    }
+
+    if (backendAnalysisRunning) {
+      setVideoError('Wait for analysis to complete before building a video brief.');
       return;
     }
 
