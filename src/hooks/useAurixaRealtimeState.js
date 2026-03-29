@@ -1,17 +1,59 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { mockState } from '../data/mockState';
 
 const streamMode = import.meta.env.VITE_AURIXA_STREAM_MODE || 'auto';
 const wsUrl = import.meta.env.VITE_AURIXA_WS_URL || '';
 const pollUrl = import.meta.env.VITE_AURIXA_POLL_URL || '';
+const analyzeUrl = import.meta.env.VITE_AURIXA_ANALYZE_URL || '';
+const audioUrl = import.meta.env.VITE_AURIXA_AUDIO_URL || '';
+const audioJobBaseUrl = import.meta.env.VITE_AURIXA_AUDIO_JOB_BASE_URL || '';
 const pollIntervalMs = Number(import.meta.env.VITE_AURIXA_POLL_INTERVAL_MS || 2000);
 const reconnectMs = Number(import.meta.env.VITE_AURIXA_WS_RECONNECT_MS || 2000);
 const simulationIntervalMs = Number(import.meta.env.VITE_AURIXA_SIMULATION_INTERVAL_MS || 2200);
 
 const pipelineNodes = ['INGESTION', 'DRAFTING', 'COMPLIANCE', 'EDITOR', 'APPROVAL'];
 
+function resolveHttpEndpoint(pathname, explicitUrl = '') {
+  if (explicitUrl) {
+    return explicitUrl;
+  }
+
+  if (pollUrl) {
+    const base = new URL(pollUrl);
+    return new URL(pathname, `${base.origin}/`).toString();
+  }
+
+  if (wsUrl) {
+    const protocol = wsUrl.startsWith('wss://') ? 'https://' : 'http://';
+    const withoutProtocol = wsUrl.replace(/^wss?:\/\//, '');
+    const host = withoutProtocol.split('/')[0];
+    return `${protocol}${host}${pathname}`;
+  }
+
+  return '';
+}
+
 function normalizeState(candidate, fallback) {
   const source = candidate && typeof candidate === 'object' ? candidate : fallback;
+
+  const entities = Array.isArray(source.intelligence?.entities)
+    ? source.intelligence.entities
+        .map((entity) => {
+          if (!entity) {
+            return null;
+          }
+
+          if (typeof entity === 'string') {
+            return { name: entity, type: 'OTHER' };
+          }
+
+          return {
+            name: String(entity.name || '').trim(),
+            type: String(entity.type || 'OTHER').trim(),
+          };
+        })
+        .filter((entity) => entity?.name)
+    : fallback.intelligence.entities;
 
   return {
     task_id: source.task_id || fallback.task_id,
@@ -38,8 +80,27 @@ function normalizeState(candidate, fallback) {
         ? source.intelligence.violations
         : fallback.intelligence.violations,
       ruleset: source.intelligence?.ruleset || fallback.intelligence.ruleset,
+      briefing: Array.isArray(source.intelligence?.briefing)
+        ? source.intelligence.briefing
+        : fallback.intelligence.briefing,
+      entities,
+      sentiment:
+        source.intelligence?.sentiment || fallback.intelligence.sentiment,
+      hindi_summary:
+        source.intelligence?.hindi_summary || fallback.intelligence.hindi_summary,
+      telugu_summary:
+        source.intelligence?.telugu_summary || fallback.intelligence.telugu_summary,
+      source_url: source.intelligence?.source_url || fallback.intelligence.source_url,
+      generated_at:
+        source.intelligence?.generated_at || fallback.intelligence.generated_at,
     },
     audit_trail: Array.isArray(source.audit_trail) ? source.audit_trail : fallback.audit_trail,
+    studio: {
+      audio_status: source.studio?.audio_status || fallback.studio.audio_status,
+      audio_job_id: source.studio?.audio_job_id || fallback.studio.audio_job_id,
+      audio_message: source.studio?.audio_message || fallback.studio.audio_message,
+      audio_url: source.studio?.audio_url || fallback.studio.audio_url,
+    },
   };
 }
 
@@ -69,6 +130,85 @@ export function useAurixaRealtimeState({ enabled = true } = {}) {
   });
 
   const teardownRef = useRef(() => {});
+
+  const analyzeArticle = useCallback(async ({ articleUrl = '', articleText = '' }) => {
+    const endpoint = resolveHttpEndpoint('/api/analyze', analyzeUrl);
+    if (!endpoint) {
+      throw new Error('Analyze endpoint is not configured. Set VITE_AURIXA_ANALYZE_URL.');
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        article_url: articleUrl || undefined,
+        article_text: articleText || undefined,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = payload?.detail || payload?.message || 'Failed to start analysis.';
+      throw new Error(message);
+    }
+
+    return payload;
+  }, []);
+
+  const generateAudio = useCallback(async ({ scriptText = '' } = {}) => {
+    const endpoint = resolveHttpEndpoint('/api/generate-audio', audioUrl);
+    if (!endpoint) {
+      throw new Error('Audio endpoint is not configured. Set VITE_AURIXA_AUDIO_URL.');
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        script_text: scriptText || undefined,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = payload?.detail || payload?.message || 'Failed to start audio generation.';
+      throw new Error(message);
+    }
+
+    return payload;
+  }, []);
+
+  const getAudioJob = useCallback(async (jobId) => {
+    if (!jobId) {
+      throw new Error('jobId is required to fetch audio job state.');
+    }
+
+    const explicitUrl = audioJobBaseUrl
+      ? `${audioJobBaseUrl.replace(/\/$/, '')}/${jobId}`
+      : '';
+    const endpoint = resolveHttpEndpoint(`/api/audio-jobs/${jobId}`, explicitUrl);
+    if (!endpoint) {
+      throw new Error('Audio job endpoint is not configured. Set VITE_AURIXA_AUDIO_JOB_BASE_URL.');
+    }
+
+    const response = await fetch(endpoint, {
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = payload?.detail || payload?.message || 'Failed to fetch audio job.';
+      throw new Error(message);
+    }
+
+    return payload;
+  }, []);
 
   useEffect(() => {
     if (!enabled) {
@@ -392,5 +532,14 @@ export function useAurixaRealtimeState({ enabled = true } = {}) {
     };
   }, [enabled]);
 
-  return useMemo(() => ({ state, connection }), [state, connection]);
+  return useMemo(
+    () => ({
+      state,
+      connection,
+      analyzeArticle,
+      generateAudio,
+      getAudioJob,
+    }),
+    [state, connection, analyzeArticle, generateAudio, getAudioJob]
+  );
 }

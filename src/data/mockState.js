@@ -34,6 +34,23 @@ export const mockState = {
       },
     ],
     ruleset: 'Scanning against Global Regulatory Set v4.0',
+    briefing: [
+      'Market-facing draft aligns with enterprise compliance tone and factual baseline.',
+      'One tone inconsistency remains in paragraph 4 and is queued for auto-correction.',
+      'Approval readiness is high once pending editorial harmonization completes.',
+    ],
+    entities: [
+      { name: 'Economic Times', type: 'ORG' },
+      { name: 'Q3 2024', type: 'TOPIC' },
+      { name: 'Global Market Trends', type: 'TOPIC' },
+    ],
+    sentiment: 'NEUTRAL',
+    hindi_summary:
+      'Yeh dashboard abhi demo mode mein hai. Live Hindi summary ke liye backend analysis endpoint ko connect karein.',
+    telugu_summary:
+      'Idi demo mode saramsham. Live Telugu summary kosam backend analysis endpoint ni connect cheyandi.',
+    source_url: '',
+    generated_at: '',
   },
   audit_trail: [
     {
@@ -57,4 +74,10 @@ export const mockState = {
       message: 'Ingestion complete. Processing 24kb text.',
     },
   ],
+  studio: {
+    audio_status: 'idle',
+    audio_job_id: '',
+    audio_message: 'Audio generation has not started.',
+    audio_url: '',
+  },
 };

@@ -38,6 +38,9 @@ Store frontend endpoint values in [ .env ](.env):
 
 - `VITE_AURIXA_WS_URL=ws://127.0.0.1:8000/ws/state`
 - `VITE_AURIXA_POLL_URL=http://127.0.0.1:8000/api/state`
+- `VITE_AURIXA_ANALYZE_URL=http://127.0.0.1:8000/api/analyze`
+- `VITE_AURIXA_AUDIO_URL=http://127.0.0.1:8000/api/generate-audio`
+- `VITE_AURIXA_AUDIO_JOB_BASE_URL=http://127.0.0.1:8000/api/audio-jobs`
 
 For CI and production build pipelines, store endpoint values in GitHub repository secrets:
 
@@ -47,7 +50,7 @@ For CI and production build pipelines, store endpoint values in GitHub repositor
 Path in GitHub UI:
 Repository -> Settings -> Secrets and variables -> Actions -> New repository secret
 
-## Minimal FastAPI + LangGraph Adapter
+## Live FastAPI + Gemini Adapter
 
 Backend adapter files are in [backend/main.py](backend/main.py), [backend/orchestrator.py](backend/orchestrator.py), and [backend/schema.py](backend/schema.py).
 
@@ -55,6 +58,11 @@ Exposed endpoints:
 
 - `GET /api/state`
 - `WS /ws/state`
+- `POST /api/analyze`
+- `POST /api/generate-audio`
+- `GET /api/audio-jobs/{job_id}`
+
+`POST /api/generate-audio` is asynchronous and returns an immediate `job_id` (HTTP 202). Poll `GET /api/audio-jobs/{job_id}` until status is `completed` or `failed`.
 
 Run locally:
 
@@ -189,6 +197,7 @@ Workflow file: `.github/workflows/ci.yml`
 
 - Frontend can run without AI API keys.
 - Frontend needs Firebase web config values and stream endpoints (`VITE_AURIXA_WS_URL`, `VITE_AURIXA_POLL_URL`).
+- Optional explicit API routes for controls: `VITE_AURIXA_ANALYZE_URL`, `VITE_AURIXA_AUDIO_URL`, `VITE_AURIXA_AUDIO_JOB_BASE_URL`.
 
 ### Backend (likely required)
 
